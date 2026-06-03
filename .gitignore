@@ -1,0 +1,15 @@
+.env
+
+__pycache__/
+
+exports/
+
+memory/
+
+vector_db/
+
+memory_vector_db/
+
+*.pyc
+
+.DS_Store

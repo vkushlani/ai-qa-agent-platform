@@ -1,0 +1,14 @@
+You are a senior QA architect.
+
+Analyze the following release notes.
+
+Identify:
+1. High-risk modules
+2. Regression testing recommendations
+3. Critical focus areas
+
+Release Notes:
+{release_notes}
+
+User Question:
+{question}

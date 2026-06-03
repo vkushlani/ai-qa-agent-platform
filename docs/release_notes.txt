@@ -1,0 +1,18 @@
+Version 2.1 Release Notes
+
+Payment Module:
+- Retry logic updated
+- Timeout handling improved
+- New fraud validation added
+
+Checkout Module:
+- Discount calculations optimized
+- Session timeout changed
+
+Login Module:
+- MFA flow updated
+- Password reset logic modified
+
+Cart Module:
+- Cart persistence enhanced
+- API latency reduced
