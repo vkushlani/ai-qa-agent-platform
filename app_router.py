@@ -11,9 +11,13 @@ def classify_question(question):
         return "comparison"
 
     elif any(word in question for word in [
-        "how many documents",
-        "number of documents"
-    ]):
+    "how many documents",
+    "number of documents",
+    "how many files",
+    "number of files",
+    "how many uploaded",
+    "how many document"
+]):
         return "document_count"
     
     elif any(word in question for word in [
@@ -102,6 +106,20 @@ def classify_question(question):
         "test execution"
     ]):
         return "automation"
+    
+    elif any(word in question for word in [
+    "name of uploaded document",
+    "name of the uploaded document",
+    "names of uploaded documents",
+    "uploaded document name",
+    "uploaded file name",
+    "uploaded file names",
+    "what document did i upload",
+    "which document did i upload"
+]):
+        return "document_names"
+    
+    
     else:
         return "rag_search"
     

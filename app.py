@@ -1,68 +1,46 @@
-import streamlit as st
 import time
 from pathlib import Path
-from dotenv import load_dotenv
+
+import streamlit as st
 import pandas as pd
+from dotenv import load_dotenv
 from pypdf import PdfReader
 from docx import Document as DocxDocument
-env_path = Path(__file__).with_name('.env')
-load_dotenv(dotenv_path=env_path)
 
-from langchain_openai import (
-    ChatOpenAI,
-    OpenAIEmbeddings
-)
-
+from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-
 from langchain_community.vectorstores import Chroma
-
 from langchain_core.documents import Document
 
 from app_router import classify_question
-
+from app_agents import coordinator_agent
 from app_memory_manager import (
     save_memory,
     load_memories,
     save_memory_to_vector_db,
-    retrieve_memory
+    retrieve_memory,
 )
-
-from app_agents import coordinator_agent
-
 
 # =====================================================
 # ENVIRONMENT
 # =====================================================
 
-# .env already loaded above before importing modules that require it.
+env_path = Path(__file__).with_name(".env")
+load_dotenv(dotenv_path=env_path)
 
 # =====================================================
-# LLM
-# =====================================================
-
-llm = ChatOpenAI(
-    model="gpt-4.1-mini",
-    temperature=0.2
-)
-
-# =====================================================
-# STREAMLIT PAGE
+# PAGE CONFIG
 # =====================================================
 
 st.set_page_config(
-    page_title="AI Testing Agent Platform",
+    page_title="AI-Powered QA Agent Platform",
     layout="wide"
 )
 
 st.title("AI-Powered QA Agent Platform")
 
 st.caption(
-    """
-AI Assistant for Test Design, Defect Analysis,
-Traceability, Regression Risk Assessment,
-Document Analysis and QA Planning.
-"""
+    "AI assistant for test design, defect analysis, traceability, regression risk assessment, document analysis, and QA planning."
 )
 
 st.markdown("""
@@ -80,61 +58,42 @@ You may ask questions directly, or optionally upload documents such as:
 release notes, requirements, defect reports, test plans, or user stories.
 """)
 
-    
 # =====================================================
-# SAMPLE PROMPTS
-# =====================================================
-
-# st.markdown("### Try one of these prompts:")
-
-
-# =====================================================
-# CHATGPT-STYLE INPUT
+# LLM
 # =====================================================
 
-typed_prompt = st.chat_input(
-    "Ask the AI Testing Agent..."
+llm = ChatOpenAI(
+    model="gpt-4.1-mini",
+    temperature=0.2
 )
-
-question = typed_prompt
 
 # =====================================================
 # SESSION STATE
 # =====================================================
 
 if "chat_history" not in st.session_state:
-
     st.session_state.chat_history = []
 
+if "uploaded_file_names" not in st.session_state:
+    st.session_state.uploaded_file_names = []
 
-# =====================================================
-# LOAD PERSISTENT MEMORY
-# =====================================================
+if "uploaded_file_contents" not in st.session_state:
+    st.session_state.uploaded_file_contents = {}
 
 past_memories = load_memories()
 
-# =====================================================
-# FILE UPLOAD
-# =====================================================
-
-uploaded_files = st.file_uploader(
-    "Optional: Upload QA documents",
-    type=["txt", "pdf", "docx", "csv", "xlsx"],
-    accept_multiple_files=True,
-    help="Upload release notes, requirements, defect reports, user stories, test plans, CSV, Excel, Word, or PDF files."
-)
-
-
+DEBUG_MODE = False
 
 # =====================================================
-# MAIN PROCESS
+# FILE EXTRACTION
 # =====================================================
+
 def extract_file_content(uploaded_file):
 
     file_name = uploaded_file.name.lower()
 
     if file_name.endswith(".txt"):
-        return uploaded_file.read().decode("utf-8")
+        return uploaded_file.read().decode("utf-8", errors="ignore")
 
     elif file_name.endswith(".pdf"):
         pdf_reader = PdfReader(uploaded_file)
@@ -164,94 +123,137 @@ def extract_file_content(uploaded_file):
         df = pd.read_excel(uploaded_file)
         return df.to_string(index=False)
 
-    else:
-        return ""
-    
+    return ""
+
+# =====================================================
+# OPTIONAL DOCUMENT UPLOAD
+# =====================================================
+
+uploaded_files = st.file_uploader(
+    "Optional: Upload QA Documents",
+    type=["txt", "pdf", "docx", "csv", "xlsx"],
+    accept_multiple_files=True,
+    help="Upload release notes, requirements, defect reports, test plans, user stories, Excel, CSV, Word, or PDF files."
+)
+
+if uploaded_files:
+
+    st.session_state.uploaded_file_names = []
+    st.session_state.uploaded_file_contents = {}
+
+    for uploaded_file in uploaded_files:
+
+        file_name = uploaded_file.name
+        file_content = extract_file_content(uploaded_file)
+
+        st.session_state.uploaded_file_names.append(file_name)
+        st.session_state.uploaded_file_contents[file_name] = file_content
+
+    uploaded_names = ", ".join(
+        st.session_state.uploaded_file_names
+    )
+
+    st.success(
+        f"✅ {len(st.session_state.uploaded_file_names)} document(s) uploaded: {uploaded_names}"
+    )
+
+# =====================================================
+# DISPLAY CHAT HISTORY
+# =====================================================
+
+st.subheader("Conversation")
+
+for message in st.session_state.chat_history:
+
+    if isinstance(message, dict):
+
+        with st.chat_message(message.get("role", "assistant")):
+
+            st.write(message.get("content", ""))
+
+            if (
+                message.get("role") == "assistant"
+                and "response_time" in message
+            ):
+                st.caption(
+                    f"⏱️ Response generated in {message['response_time']:.2f} seconds"
+                )
+
+# =====================================================
+# CHAT INPUT
+# =====================================================
+
+question = st.chat_input("Ask the AI Testing Agent...")
+
+# =====================================================
+# MAIN PROCESS
+# =====================================================
+
 if question:
+
     start_time = time.time()
-    
-    query_type = classify_question(question)
 
-    # st.info(
-    #     f"Workflow Selected: {query_type}"
-    # )
+    # Show current user message immediately in this run
+    with st.chat_message("user"):
+        st.write(question)
 
-    # ================================================
-    # WORKFLOWS REQUIRING DOCUMENTS
-    # ================================================
+    with st.chat_message("assistant"):
 
-    document_required_workflows = [
+        with st.spinner("Thinking..."):
 
-        "comparison",
-        "summary",
-        "document_count",
-        # "rag_search"
+            query_type = classify_question(question)
 
-    ]
+            document_required_workflows = [
+                "comparison",
+                "summary",
+                "document_count",
+                "document_names",
+            ]
 
-    if (
+            if (
+                query_type in document_required_workflows
+                and
+                not st.session_state.uploaded_file_names
+            ):
 
-        query_type in document_required_workflows
+                answer = (
+                    "This request requires uploaded documents. "
+                    "Please upload release notes, requirements, defect reports, "
+                    "test plans, or similar QA documents."
+                )
 
-        and
+            else:
 
-        not uploaded_files
+                # =================================================
+                # INITIALIZE VARIABLES
+                # =================================================
 
-    ):
+                all_documents = []
+                uploaded_document_names = []
+                combined_content = ""
+                unique_documents = []
+                retrieved_context = ""
+                memory_context = ""
 
-        st.error(
-            "This question requires documents. Please upload release notes, requirements, defect reports, or test plans below the prompt box."
-        )
+                history = "\n".join(
+                    [
+                        f"{msg.get('role', '')}: {msg.get('content', '')}"
+                        for msg in st.session_state.chat_history
+                        if isinstance(msg, dict)
+                    ]
+                )
 
-        st.stop()
+                # =================================================
+                # READ DOCUMENTS FROM SESSION STATE
+                # =================================================
 
-    # ================================================
-    # INITIALIZE VARIABLES
-    # ================================================
+                if st.session_state.uploaded_file_contents:
 
-    all_documents = []
+                    for filename, content in st.session_state.uploaded_file_contents.items():
 
-    uploaded_document_names = []
+                        uploaded_document_names.append(filename)
 
-    combined_content = ""
-
-    unique_documents = []
-
-    retrieved_context = ""
-
-    memory_context = ""
-
-    history = "\n".join(
-        st.session_state.chat_history
-    )
-
-    # ================================================
-    # LOAD DOCUMENTS (OPTIONAL)
-    # ================================================
-
-    if uploaded_files:
-        
-        st.success(
-        f"{len(uploaded_files)} document(s) uploaded"
-    )
-
-    for file in uploaded_files:
-
-        st.write(
-            f"📄 {file.name}"
-        )
-        
-        for uploaded_file in uploaded_files:
-
-            filename = uploaded_file.name
-
-            uploaded_document_names.append(
-                filename
-            )
-
-            content = extract_file_content(uploaded_file)
-
-            combined_content += f"""
+                        combined_content += f"""
 
 DOCUMENT NAME:
 {filename}
@@ -261,79 +263,71 @@ DOCUMENT CONTENT:
 
 """
 
-            all_documents.append(
+                        all_documents.append(
+                            Document(
+                                page_content=content,
+                                metadata={"source": filename}
+                            )
+                        )
 
-                Document(
+                    unique_documents = list(
+                        set(uploaded_document_names)
+                    )
 
-                    page_content=content,
+                # =================================================
+                # MEMORY RETRIEVAL
+                # Disable memory for document metadata workflows
+                # =================================================
 
-                    metadata={
-                        "source": filename
-                    }
-                )
-            )
+                if query_type in [
+                    "document_count",
+                    "document_names",
+                    "comparison",
+                    "summary",
+                ]:
+                    memory_results = []
+                else:
+                    memory_results = retrieve_memory(question)
 
-        unique_documents = list(
-            set(uploaded_document_names)
-        )
+                for memory in memory_results:
 
-    # ================================================
-    # MEMORY RETRIEVAL
-    # ================================================
-
-    memory_results = retrieve_memory(
-        question
-    )
-
-    for memory in memory_results:
-
-        memory_context += f"""
+                    memory_context += f"""
 
 {memory.page_content}
 
 """
 
-    # ================================================
-    # RAG SEARCH (ONLY IF DOCUMENTS EXIST)
-    # ================================================
+                # =================================================
+                # RAG ONLY IF DOCUMENTS EXIST
+                # =================================================
 
-    if all_documents:
+                if all_documents:
 
-        splitter = RecursiveCharacterTextSplitter(
-            chunk_size=300,
-            chunk_overlap=50
-        )
+                    splitter = RecursiveCharacterTextSplitter(
+                        chunk_size=500,
+                        chunk_overlap=80
+                    )
 
-        chunks = splitter.split_documents(
-            all_documents
-        )
+                    chunks = splitter.split_documents(all_documents)
 
-        embedding_model = OpenAIEmbeddings()
+                    embedding_model = OpenAIEmbeddings()
 
-        vectorstore = Chroma.from_documents(
+                    vectorstore = Chroma.from_documents(
+                        documents=chunks,
+                        embedding=embedding_model,
+                        persist_directory="vector_db"
+                    )
 
-            documents=chunks,
+                    results = vectorstore.similarity_search(
+                        question,
+                        k=6
+                    )
 
-            embedding=embedding_model,
+                    for r in results:
 
-            persist_directory="vector_db"
-        )
+                        source = r.metadata.get("source", "Unknown")
 
-        results = vectorstore.similarity_search(
-
-            question,
-
-            k=6
-        )
-
-        for r in results:
-
-            source = r.metadata.get(
-                "source",
-                "Unknown"
-            )
-
-            retrieved_context += f"""
+                        retrieved_context += f"""
 
 DOCUMENT:
 {source}
@@ -343,11 +337,11 @@ CONTENT:
 
 """
 
-    # ================================================
-    # MASTER CONTEXT
-    # ================================================
+                # =================================================
+                # MASTER CONTEXT
+                # =================================================
 
-    master_context = f"""
+                master_context = f"""
 
 Uploaded Documents:
 {unique_documents}
@@ -366,104 +360,114 @@ Document Content:
 
 """
 
-    # ================================================
-    # DOCUMENT COUNT
-    # ================================================
+                # =================================================
+                # DOCUMENT COUNT
+                # =================================================
 
-    if query_type == "document_count":
+                if query_type == "document_count":
 
-        answer = f"""
-Total Uploaded Documents: {len(unique_documents)}
+                    answer = f"""
+Total uploaded documents: {len(unique_documents)}
 
-Document Names:
+Document names:
 
 {chr(10).join(unique_documents)}
 """
 
-    # ================================================
-    # SUMMARY
-    # ================================================
+                # =================================================
+                # DOCUMENT NAMES
+                # =================================================
 
-    elif query_type == "summary":
+                elif query_type == "document_names":
 
-        prompt = f"""
-Summarize all uploaded documents.
+                    answer = f"""
+Uploaded document name(s):
+
+{chr(10).join(unique_documents)}
+"""
+
+                # =================================================
+                # SUMMARY
+                # =================================================
+
+                elif query_type == "summary":
+
+                    prompt = f"""
+You are a document summarization expert.
+
+Summarize all uploaded documents clearly.
 
 Documents:
 {unique_documents}
 
-Content:
+Document Content:
 {combined_content}
 """
 
-        response = llm.invoke(prompt)
+                    response = llm.invoke(prompt)
+                    answer = response.content
 
-        answer = response.content
+                # =================================================
+                # COMPARISON
+                # =================================================
 
-    # ================================================
-    # COMPARISON
-    # ================================================
+                elif query_type == "comparison":
 
-    elif query_type == "comparison":
+                    prompt = f"""
+You are a document comparison expert.
 
-        prompt = f"""
 Compare all uploaded documents.
 
-Content:
+Include:
+1. Similarities
+2. Differences
+3. Key findings
+4. Missing or unique topics
+
+Documents:
+{unique_documents}
+
+Document Content:
 {combined_content}
 
 Question:
 {question}
 """
 
-        response = llm.invoke(prompt)
+                    response = llm.invoke(prompt)
+                    answer = response.content
 
-        answer = response.content
+                # =================================================
+                # MULTI-AGENT WORKFLOWS
+                # =================================================
 
-    # ================================================
-    # MULTI AGENT WORKFLOWS
-    # ================================================
+                elif query_type in [
+                    "test_case",
+                    "defect_analysis",
+                    "traceability",
+                    "regression_risk",
+                    "coverage_pipeline",
+                    "automation",
+                    "website_testing",
+                    "planning",
+                    "release_readiness",
+                ]:
 
-    elif query_type in [
+                    answer = coordinator_agent(
+                        query_type=query_type,
+                        context=master_context,
+                        question=question
+                    )
 
-       "test_case",
+                # =================================================
+                # DEFAULT GENERAL QA / RAG WORKFLOW
+                # =================================================
 
-    "defect_analysis",
+                else:
 
-    "traceability",
+                    if retrieved_context:
 
-    "regression_risk",
-
-    "coverage_pipeline",
-
-    "automation",
-
-    "website_testing",
-
-    "planning"
-
-
-    ]:
-        
-    
-        answer = coordinator_agent(
-
-            query_type=query_type,
-
-            context=master_context,
-
-            question=question
-        )
-
-    # ================================================
-    # DEFAULT RAG
-    # ================================================
-
-    else:
-
-        if retrieved_context:
-
-            prompt = f"""
+                        prompt = f"""
 You are a Senior QA AI Assistant.
 
 Use uploaded documents if relevant.
@@ -481,16 +485,14 @@ Question:
 {question}
 """
 
-        else:
+                    else:
 
-            prompt = f"""
+                        prompt = f"""
 You are a friendly AI QA Assistant.
 
-If the user is chatting casually,
-respond naturally.
+If the user is chatting casually, respond naturally.
 
-If the user asks QA questions,
-answer using your QA knowledge.
+If the user asks QA or software testing questions, answer using your QA knowledge.
 
 Conversation History:
 {history}
@@ -502,117 +504,74 @@ Question:
 {question}
 """
 
-        response = llm.invoke(prompt)
+                    response = llm.invoke(prompt)
+                    answer = response.content
 
-        answer = response.content
+            # =================================================
+            # RESPONSE TIME
+            # =================================================
 
-    # ================================================
-    # SAVE CHAT
-    # ================================================
+            end_time = time.time()
+            response_time = end_time - start_time
 
-    st.session_state.chat_history.append(
-        f"User: {question}"
-    )
+            # =================================================
+            # DISPLAY ANSWER
+            # =================================================
 
-    st.session_state.chat_history.append(
-        f"AI: {answer}"
-    )
+            st.write(answer)
 
-    save_memory(
-        question,
-        answer
-    )
+            st.caption(
+                f"⏱️ Response generated in {response_time:.2f} seconds"
+            )
 
-    save_memory_to_vector_db(
-        question,
-        answer
-    )
+            # =================================================
+            # SAVE CHAT HISTORY
+            # =================================================
 
-    # =====================================================
-# DISPLAY CHATGPT-STYLE RESPONSE
+            st.session_state.chat_history.append(
+                {
+                    "role": "user",
+                    "content": question,
+                }
+            )
+
+            st.session_state.chat_history.append(
+                {
+                    "role": "assistant",
+                    "content": answer,
+                    "response_time": response_time,
+                }
+            )
+
+            # =================================================
+            # SAVE MEMORY
+            # =================================================
+
+            save_memory(question, answer)
+
+            save_memory_to_vector_db(question, answer)
+
+            # =================================================
+            # DEBUG SECTIONS
+            # =================================================
+
+            if DEBUG_MODE:
+
+                with st.expander("Retrieved Document Context"):
+                    st.text(retrieved_context)
+
+                with st.expander("Retrieved Memory Context"):
+                    st.text(memory_context)
+
+                with st.expander("Persistent Memory Store"):
+                    st.write(past_memories)
+
+# =====================================================
+# FOOTER
 # =====================================================
 
-    # st.chat_message("user").write(question)
-
-    # st.chat_message("assistant").write(answer)
-    
-    
-    
-    # with st.expander(
-    #     "Retrieved Document Context"
-    # ):
-    #     st.text(retrieved_context)
-
-    # with st.expander(
-    #     "Retrieved Memory Context"
-    # ):
-    #     st.text(memory_context)
-    
- 
-
-    # =================================================
-    # DEBUG SECTION
-    # =================================================
-
-    # with st.expander(
-    #     "Retrieved Document Context"
-    # ):
-    #     st.text(retrieved_context)
-
-    # with st.expander(
-    #     "Retrieved Memory Context"
-    # ):
-    #     st.text(memory_context)
-
-    
-# =====================================================
-# CHATGPT-STYLE CHAT HISTORY
-# =====================================================
-
-st.subheader("Conversation")
-
-for item in st.session_state.chat_history:
-
-    if item.startswith("User:"):
-
-        st.chat_message("user").write(
-            item.replace("User:", "").strip()
-        )
-
-    elif item.startswith("AI:"):
-
-        st.chat_message("assistant").write(
-            item.replace("AI:", "").strip()
-        )
-        
-end_time = time.time()
-
-st.caption(
-    f"Response generated in {end_time-start_time:.2f} seconds"
-)
-# =====================================================
-# PERSISTENT MEMORY
-# =====================================================
-
-# with st.expander(
-#     "Persistent Memory Store"
-# ):
-
-#     st.write(
-#         past_memories
-#     )
-    
 st.markdown("---")
 
 st.caption(
-    """
-Built with:
-
-Streamlit
-LangChain
-OpenAI
-ChromaDB
-
-Multi-Agent QA Architecture
-"""
+    "Built with Streamlit, LangChain, OpenAI, ChromaDB, and multi-agent QA architecture."
 )
