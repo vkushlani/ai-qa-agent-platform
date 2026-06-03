@@ -20,7 +20,9 @@ VECTOR_DB_PATH = "memory_vector_db"
 # =====================================================
 
 def save_memory(user_message, ai_response):
-
+    
+    os.makedirs("memory", exist_ok=True)
+    
     # Load existing memory
 
     if os.path.exists(MEMORY_FILE):
