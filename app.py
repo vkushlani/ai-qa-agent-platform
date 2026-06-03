@@ -130,11 +130,12 @@ def extract_file_content(uploaded_file):
 # =====================================================
 
 uploaded_files = st.file_uploader(
-    "Optional: Upload QA Documents",
+    "＋ Attach documents",
     type=["txt", "pdf", "docx", "csv", "xlsx"],
     accept_multiple_files=True,
-    help="Upload release notes, requirements, defect reports, test plans, user stories, Excel, CSV, Word, or PDF files."
+    help="Optional: attach QA documents such as requirements, release notes, defect reports, test plans, CSV, Excel, Word, or PDF files."
 )
+
 
 if uploaded_files:
 
@@ -156,6 +157,11 @@ if uploaded_files:
     st.success(
         f"✅ {len(st.session_state.uploaded_file_names)} document(s) uploaded: {uploaded_names}"
     )
+# =====================================================
+# CHAT INPUT
+# =====================================================
+
+question = st.chat_input("Ask the AI Testing Agent...")
 
 # =====================================================
 # DISPLAY CHAT HISTORY
@@ -178,12 +184,6 @@ for message in st.session_state.chat_history:
                 st.caption(
                     f"⏱️ Response generated in {message['response_time']:.2f} seconds"
                 )
-
-# =====================================================
-# CHAT INPUT
-# =====================================================
-
-question = st.chat_input("Ask the AI Testing Agent...")
 
 # =====================================================
 # MAIN PROCESS
