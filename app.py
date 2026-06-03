@@ -536,11 +536,7 @@ Question:
 
     # st.chat_message("assistant").write(answer)
     
-    end_time = time.time()
-
-    st.caption(
-    f"Response generated in {end_time-start_time:.2f} seconds"
-)
+    
     
     # with st.expander(
     #     "Retrieved Document Context"
@@ -588,6 +584,12 @@ for item in st.session_state.chat_history:
         st.chat_message("assistant").write(
             item.replace("AI:", "").strip()
         )
+        
+end_time = time.time()
+
+st.caption(
+    f"Response generated in {end_time-start_time:.2f} seconds"
+)
 # =====================================================
 # PERSISTENT MEMORY
 # =====================================================
