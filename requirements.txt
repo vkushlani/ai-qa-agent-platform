@@ -4,10 +4,14 @@ langchain
 langchain-openai
 langchain-community
 langchain-text-splitters
-chromadb
 openai
 pypdf
 python-docx
 pandas
 openpyxl
 tiktoken
+chromadb==0.5.5
+protobuf==3.20.3
+opentelemetry-api==1.25.0
+opentelemetry-sdk==1.25.0
+opentelemetry-exporter-otlp==1.25.0
