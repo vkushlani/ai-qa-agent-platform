@@ -99,7 +99,17 @@ def classify_question(question):
         "coverage analysis"
     ]):
         return "coverage_pipeline"
-    
+    elif any(word in question for word in [
+    "latest",
+    "current",
+    "today",
+    "recent",
+    "new books",
+    "book references",
+    "latest version"
+]):
+        return "web_search"
+
     elif any(word in question for word in [
         "run test"
         ,"execute test",
@@ -119,7 +129,22 @@ def classify_question(question):
 ]):
         return "document_names"
     
-    
+    elif any(word in question for word in [
+    "latest",
+    "current",
+    "recent",
+    "new",
+    "news",
+    "web search",
+    "internet",
+    "online",
+    "book references",
+    "books",
+    "references",
+    "latest version"
+]):
+        return "web_search"
+
     else:
         return "rag_search"
     

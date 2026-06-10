@@ -3,7 +3,7 @@ import streamlit as st
 from pathlib import Path
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
-
+from tools import web_search
 from app_tools import (
     save_test_cases,
     save_traceability_report,
@@ -335,6 +335,7 @@ def coordinator_agent(
         context,
         question
     )
+    
     elif query_type == "planning":
 
         return planning_agent(
@@ -346,7 +347,34 @@ def coordinator_agent(
             question
         )
 
-    return "No suitable agent found."
+    elif query_type == "web_search":
+
+        return web_search_agent(
+        context,
+        question
+    )
+
+    else:
+
+    # Fallback for any unrecognized query
+        prompt = f"""
+You are a helpful AI QA assistant.
+
+The router could not identify a specialized workflow,
+so answer the user's question as best as possible.
+
+Use context if available.
+
+Context:
+{context}
+
+Question:
+{question}
+"""
+
+    response = llm.invoke(prompt)
+
+    return response.content
 
 def website_testing_agent(
     context,
@@ -391,6 +419,30 @@ Return:
 1. Step-by-step plan
 2. Recommended QA activities
 """
+    response = llm.invoke(prompt)
+
+    return response.content
+
+# Web Search Agent
+
+def web_search_agent(context, question):
+
+    search_results = web_search(question)
+
+    prompt = f"""
+You are a live web research assistant.
+
+Use the live web search results below to answer the user's question.
+
+If the results include titles, URLs, or snippets, summarize them clearly.
+
+Web Search Results:
+{search_results}
+
+Question:
+{question}
+"""
+
     response = llm.invoke(prompt)
 
     return response.content

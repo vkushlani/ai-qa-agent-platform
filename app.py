@@ -7,6 +7,15 @@ from dotenv import load_dotenv
 from pypdf import PdfReader
 from docx import Document as DocxDocument
 
+env_path = Path(__file__).with_name(".env")
+load_dotenv(dotenv_path=env_path)
+
+try:
+    if "OPENAI_API_KEY" in st.secrets:
+        os.environ["OPENAI_API_KEY"] = st.secrets["OPENAI_API_KEY"]
+except Exception:
+    pass
+    
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import Chroma
@@ -25,8 +34,8 @@ from app_memory_manager import (
 # ENVIRONMENT
 # =====================================================
 
-env_path = Path(__file__).with_name(".env")
-load_dotenv(dotenv_path=env_path)
+# env_path = Path(__file__).with_name(".env")
+# load_dotenv(dotenv_path=env_path)
 
 # =====================================================
 # PAGE CONFIG
@@ -452,6 +461,7 @@ Question:
                     "website_testing",
                     "planning",
                     "release_readiness",
+                     "web_search",
                 ]:
 
                     answer = coordinator_agent(

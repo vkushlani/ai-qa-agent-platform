@@ -1,3 +1,22 @@
+import os
+from tavily import TavilyClient
+
+def web_search(query):
+
+    api_key = os.getenv("TAVILY_API_KEY")
+
+    if not api_key:
+        return "TAVILY_API_KEY is not configured."
+
+    client = TavilyClient(api_key=api_key)
+
+    results = client.search(
+        query=query,
+        max_results=5
+    )
+
+    return results
+
 def analyze_risk(module_name):
     
     risks = {
