@@ -52,22 +52,46 @@ st.caption(
     "AI assistant for test design, defect analysis, traceability, regression risk assessment, document analysis, and QA planning."
 )
 
-st.markdown("""
-This app demonstrates an AI assistant for software testing.
+with st.expander("🚀 Platform Capabilities", expanded=True):
 
-You can use it to:
+    st.markdown("""
+### Core AI Agents
 
-- Generate test cases from requirements
-- Analyze defects and root causes
-- Create requirement traceability ideas
-- Identify regression risks
-- Run mock automation checks
+✅ AI-Powered Test Case Generation
 
-You may ask questions directly, or optionally upload documents such as:
-release notes, requirements, defect reports, test plans, or user stories.
+✅ Defect & Root Cause Analysis
+
+✅ Requirement Traceability Support
+
+✅ Regression Risk Assessment
+
+✅ Support for Test Coverage Analysis
+
+---
+
+### Document Intelligence
+
+📄 Summarize Uploaded Documents
+
+📄 Compare Multiple Documents
+
+📄 Analyze Release Notes
+
+📄 Generate Tests from Requirements
+
+---
+
+### Advanced Features
+
+🧠 Persistent Memory
+
+🔎 RAG Search
+
+🌐 Live Web Search
+
+🤖 Multi-Agent Architecture
 """)
-
-
+    
 # =====================================================
 # LLM
 # =====================================================
@@ -167,6 +191,10 @@ if uploaded_files:
     st.success(
         f"✅ {len(st.session_state.uploaded_file_names)} document(s) uploaded: {uploaded_names}"
     )
+    
+    
+    
+    
 # =====================================================
 # CHAT INPUT
 # =====================================================
@@ -584,5 +612,11 @@ Question:
 st.markdown("---")
 
 st.caption(
-    "Built with Streamlit, LangChain, OpenAI, ChromaDB, and multi-agent QA architecture."
-)
+    """
+   <b>Built by Vikas Kushlani</b><br>
+   
+    Streamlit • LangChain • OpenAI • ChromaDB • Multi-Agent AI
+
+    """,
+    unsafe_allow_html=True
+    )
