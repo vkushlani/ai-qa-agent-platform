@@ -1,6 +1,6 @@
 import time
 from pathlib import Path
-
+import os
 import streamlit as st
 import pandas as pd
 from dotenv import load_dotenv
@@ -57,6 +57,7 @@ You can use it to:
 You may ask questions directly, or optionally upload documents such as:
 release notes, requirements, defect reports, test plans, or user stories.
 """)
+
 
 # =====================================================
 # LLM

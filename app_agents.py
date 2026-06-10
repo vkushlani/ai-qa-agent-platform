@@ -1,3 +1,7 @@
+import os 
+import streamlit as st
+from pathlib import Path
+from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
 
 from app_tools import (
@@ -7,8 +11,15 @@ from app_tools import (
     save_regression_report,
     run_mock_login_test
 )
+env_path = Path(__file__).with_name(".env")
+load_dotenv(dotenv_path=env_path)
 
 
+try:
+    if "OPENAI_API_KEY" in st.secrets:
+        os.environ["OPENAI_API_KEY"] = st.secrets["OPENAI_API_KEY"]
+except Exception:
+    pass
 
 llm = ChatOpenAI(
     model="gpt-4.1-mini",
